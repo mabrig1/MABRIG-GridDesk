@@ -1,0 +1,26 @@
+name: quality
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:db
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://test-minigrid.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_test_only_not_a_real_key
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      # This mock-configured build is ONLY for tests. Never deploy this output.
+      - run: npm audit --omit=dev --audit-level=high

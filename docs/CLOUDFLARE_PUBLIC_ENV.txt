@@ -1,0 +1,4 @@
+# Public build configuration only; these are not secret/service-role credentials.
+NEXT_PUBLIC_SUPABASE_URL=https://fudusieijsywbjjtzdrs.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_vrmOzX5YvAMEebY1gDcUvg_XvH6o0oA
+

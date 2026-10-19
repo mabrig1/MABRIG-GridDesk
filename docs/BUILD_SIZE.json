@@ -1,0 +1,17 @@
+{
+  "index.html": {
+    "initial_js_files": 7,
+    "initial_js_bytes": 577077,
+    "initial_js_gzip_bytes": 178566
+  },
+  "demo/index.html": {
+    "initial_js_files": 12,
+    "initial_js_bytes": 907107,
+    "initial_js_gzip_bytes": 269604
+  },
+  "dashboard/index.html": {
+    "initial_js_files": 12,
+    "initial_js_bytes": 907236,
+    "initial_js_gzip_bytes": 269691
+  }
+}
