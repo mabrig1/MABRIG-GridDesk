@@ -36,6 +36,11 @@ test("Landing, sample dashboard, filters and navigation work without overflow", 
       .getByText("Chika Cold Store", { exact: true })
       .filter({ visible: true }),
   ).toHaveCount(0);
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export CSV" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/griddesk-tenants-fictional-sample-.*\.csv/);
+  await expect(page.getByText("CSV downloaded: 1 records.", { exact: false })).toBeVisible();
   await page.getByLabel("Search tenants").fill("");
   await page.getByLabel("Filter business type").selectOption("welder");
   await expect(
