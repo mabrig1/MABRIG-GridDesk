@@ -6,6 +6,21 @@ Repository: https://github.com/mabrig1/MABRIG-GridDesk
 
 Cloudflare Pages publication is pending. The Supabase backend is provisioned; see [hosted status](docs/HOSTED_STATUS.md).
 
+## Reporting and visual insights
+- Two accessibility-labelled, responsive bar-chart cards show collection composition
+  (real/non-simulated and simulated **separately**) and tenant/energy proportions
+  using the existing authoritative `dashboard_summary` RPC.
+- Export tenant, payment or energy CSVs from the current tab, including the
+  filtered tenant search. Authenticated exports are fetched from Supabase under
+  existing per-operator row-level security. The export is limited to **1,000**
+  records, with an explicit warning and `partial` filename if truncated.
+- CSV output neutralizes leading spreadsheet-formula characters in user-entered
+  text, carries column units and UTC date labels, and marks fictional sample
+  downloads in their filenames. Exported records are ordinary convenience
+  reports, **not immutable audit statements** or independently reconciled funds.
+- No backend migration, external chart service, new package, or payment-provider
+  integration is required.
+
 ## What works in the implementation
 - Landing page and explicitly fictional, read-only sample dashboard at `/demo/`.
 - Supabase email/password signup, login, PKCE callback, company onboarding and logout.

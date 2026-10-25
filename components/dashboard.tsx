@@ -11,6 +11,7 @@ import {
   Search,
   ArrowUpRight,
   RefreshCw,
+  Download,
   Leaf,
   Zap,
 } from "lucide-react";
@@ -52,6 +53,9 @@ import {
 import { TenantForm } from "./tenant-form";
 import { PaymentForm } from "./payment-form";
 import { EnergyForm } from "./energy-form";
+import { Insights } from "./insights";
+import { downloadReport, makeReportCsv, reportFileName, type ReportTab } from "@/lib/reports";
+import { fetchReport, previewReport } from "@/lib/report-data";
 type Tab = "tenants" | "payments" | "energy";
 export function Dashboard({ preview = false }: { preview?: boolean }) {
   const [uid, setUid] = useState(preview ? "sample" : ""),
@@ -68,6 +72,7 @@ export function Dashboard({ preview = false }: { preview?: boolean }) {
     [energy, setEnergy] = useState<EnergyLog[]>([]),
     [summary, setSummary] = useState<Summary | null>(null),
     [count, setCount] = useState(0);
+  const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -238,6 +243,34 @@ export function Dashboard({ preview = false }: { preview?: boolean }) {
     setEnergyTenant(null);
     setNotice(message);
     setRefresh((x) => x + 1);
+  }
+  async function exportCurrentTab() {
+    if (loading || exporting) return;
+    const kind: ReportTab = tab;
+    setExporting(true);
+    setError("");
+    try {
+      const result = preview
+        ? previewReport(kind, { query, filter })
+        : await fetchReport(kind, { query, filter });
+      if (result.rows.length === 0) {
+        setNotice("No matching records to export.");
+        return;
+      }
+      downloadReport(
+        makeReportCsv(kind, result.rows),
+        reportFileName(kind, preview, result.truncated),
+      );
+      setNotice(
+        result.truncated
+          ? `Partial CSV: exported ${result.rows.length} of ${result.total} matching records. This is not a complete audit.`
+          : `CSV downloaded: ${result.rows.length} records. A reporting export, not a verified accounting statement.`,
+      );
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setExporting(false);
+    }
   }
   async function logout() {
     try {
@@ -422,6 +455,7 @@ export function Dashboard({ preview = false }: { preview?: boolean }) {
               <span className="tag">NOT REAL REVENUE</span>
             </span>
           </div>
+          {tab === "tenants" && <Insights summary={summary} preview={preview} />}
           {intent && (
             <div className="notice amber">
               <strong>A payment needs confirmation.</strong> Keep this
@@ -464,6 +498,16 @@ export function Dashboard({ preview = false }: { preview?: boolean }) {
                       : "Consumption is entered in kilowatt-hours (kWh)."}
                 </p>
               </div>
+              <div className="data-actions">
+                <Button
+                  variant="outline"
+                  onClick={() => void exportCurrentTab()}
+                  disabled={loading || exporting || count === 0 || Boolean(error)}
+                  aria-label="Export CSV"
+                >
+                  <Download size={16} />
+                  {exporting ? "Preparing CSV…" : "Export CSV"}
+                </Button>
               <Button
                 variant="ghost"
                 aria-label="Refresh data"
@@ -473,6 +517,7 @@ export function Dashboard({ preview = false }: { preview?: boolean }) {
                 <RefreshCw size={17} />
                 <span>Refresh</span>
               </Button>
+              </div>
             </div>
             {tab === "tenants" && (
               <div className="filters">
