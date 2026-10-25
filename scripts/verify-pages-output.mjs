@@ -1,4 +1,4 @@
-// Confirm the Cloudflare Pages deployment directory and the static app routes.
+// Confirm the Cloudflare static hosting deployment directory and the static app routes.
 // This runs AFTER "next build" with output: "export" and trailingSlash: true.
 import { access, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -22,15 +22,15 @@ for (const file of expected) {
     await access(path);
     if (!(await stat(path)).isFile()) throw new Error("not a file");
   } catch {
-    console.error(`Missing expected Cloudflare Pages artifact: ${path}`);
+    console.error(`Missing expected Cloudflare static hosting artifact: ${path}`);
     missing = true;
   }
 }
 if (missing) {
   console.error(
-    "Static export incomplete: Cloudflare Pages MUST serve out/, not .next/ or .vercel/output/static.",
+    "Static export incomplete: Cloudflare static hosting MUST serve out/, not .next/ or .vercel/output/static.",
   );
   process.exitCode = 1;
 } else {
-  console.log("Cloudflare Pages static-export check OK. Publish the out/ directory.");
+  console.log("Cloudflare static-export check OK. Publish the out/ directory.");
 }

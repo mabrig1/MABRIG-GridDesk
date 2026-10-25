@@ -1,0 +1,11 @@
+# This repository is currently connected to a Cloudflare WORKER Build named
+# "mabrig-griddesk" (confirmed by its GitHub check run on 25 October 2026).
+# Next.js is statically exported to ./out; no Worker script or adapter is needed.
+# Never replace these with Pages-only `pages_build_output_dir` values.
+name = "mabrig-griddesk"
+compatibility_date = "2026-10-25"
+
+[assets]
+directory = "./out"
+not_found_handling = "404-page"
+html_handling = "auto-trailing-slash"

@@ -1,51 +1,58 @@
-# Cloudflare Pages build recovery — GridDesk (25 October 2026)
+# Cloudflare Workers build recovery — GridDesk (25 October 2026)
 
-This is a **static Next.js export**, not a full-stack Next.js Worker. The UI calls Supabase Auth / Data API from the browser. Its repository uses `output: "export"` and `trailingSlash: true`.
+## Confirmed deployment architecture
+GitHub checks for commit `b941434` reveal that the existing Cloudflare integration is **Workers Builds: mabrig-griddesk** — a Cloudflare **Worker**, not Cloudflare Pages.
 
-## What is verified and what is not
-- At commit `675a02c`, the GitHub Actions quality workflow completed successfully (including the normal `npm run build`).
-- The live Cloudflare build log and Cloudflare project settings are **not available through the GitHub connector**. The actual failure cannot be attributed to one cause without that log.
-- The previous `wrangler.toml` included a hard-coded Pages project name, `mabrig-minigrid`. This can diverge from the name used when creating an actual Pages project, and a Pages Wrangler configuration with `pages_build_output_dir` becomes a source of truth for the project. This fix removes that unverified configuration. It does **not** change Cloudflare account settings.
-- `npm run build:pages` runs the existing production build and then checks the static `out/` artifacts.
+Worker build logs: https://dash.cloudflare.com/462dc7a708c1a89f779f9f61cb693dbf/workers/services/view/mabrig-griddesk/production/builds/4ae0b78f-0989-4f3b-8d06-72abc716236d
 
-## Exact Cloudflare Pages settings to apply in your existing project
-Go to Cloudflare dashboard → **Workers & Pages** → your existing **Pages** project → **Settings → Builds** (the label may be **Build & deployments**):
+The earlier repository `wrangler.toml` was a **Pages** configuration (`pages_build_output_dir = "out"`) and targeted another name (`mabrig-minigrid`), inconsistent with the observed Worker. This is a **likely deployment configuration mismatch**, not yet a proven root cause without Cloudflare's detailed build log.
+
+The existing GridDesk UI uses Next.js static export (`output: "export"`, `trailingSlash: true`), then calls Supabase Auth/Data API directly. Cloudflare Workers **Static Assets** supports this without a Worker JS entry point.
+
+## Repair in this pull request
+- Replace the Pages-only configuration with `wrangler.toml` for the **existing Worker name** `mabrig-griddesk`.
+- Configure `[assets] directory = "./out"`, `not_found_handling = "404-page"`, and `html_handling = "auto-trailing-slash"`.
+- Keep the existing Next.js output/export untouched.
+- Add `npm run build:cloudflare` to build and validate generated `out/` routes in CI.
+- Make no account, domain, billing, secret, or Supabase data changes.
+
+## Exact settings for the EXISTING Worker
+In Cloudflare → **Workers & Pages → mabrig-griddesk → Settings → Build**:
 
 | Field | Value |
 |---|---|
-| Project kind | **Pages**, not Workers |
+| Project type | **Workers** (existing; do not create a second project) |
 | Git repository | `mabrig1/MABRIG-GridDesk` |
-| Production branch | `main` |
-| Framework | **Next.js (Static HTML Export)**; if absent use **None** with values below |
-| Root directory | Repository root (`/` or blank) |
-| Build command | `npm run build:pages` |
-| Build output directory | `out` |
-| Node.js | 22 (already specified in `.node-version`; optionally set `NODE_VERSION=22`) |
-| Build image | v3 preferred |
+| Git production branch | `main` |
+| Root directory | repository root / blank |
+| Build command | `npm run build:cloudflare` |
+| Deploy command | `npx wrangler deploy` |
+| Node.js version | 22 (already declared in `.node-version`) |
+| Static assets | `./out`, configured in `wrangler.toml` |
 
-Do **not** use `npx @cloudflare/next-on-pages`, `npx opennextjs-cloudflare build`, `.vercel/output/static`, or `.next` for this static application. The **Next.js** preset (without *Static HTML Export*) can choose the wrong build pipeline. Cloudflare's static-export guide specifies `out`.
+Cloudflare Workers Builds runs a **build** step and then a **deploy** step. A success in `next build` alone does not deploy the Worker. Do not use Pages commands `wrangler pages deploy` or `@cloudflare/next-on-pages` for this existing Worker.
 
-## Public build variables
-In **Settings → Variables and Secrets**, configure **both** variables for the target environment (Production and, if applicable, Preview):
+### Public Supabase build-time variables
+In Worker **Build variables** (not just runtime variables), set BOTH:
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://fudusieijsywbjjtzdrs.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<copy the publishable key from Supabase dashboard>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key from Supabase>
 ```
 
-Use a **publishable** key, never a Supabase secret or `service_role` key. If only one value is present, the existing safety validator intentionally rejects the build. If neither is present, a **read-only unconfigured sample** can build, but real login will not work. Cloudflare Pages static env variables are embedded at build time; rebuild after changing them.
+Do not use a secret/service-role key or place a key in a public source file. If only one variable is set, the build's safety validator intentionally rejects it. The two values are inlined by Next.js at build time. The domain and Supabase Auth redirect configuration should be updated *only after* a successful deployment and domain verification.
 
-## Find the actual error
-Open **Workers & Pages → your project → Deployments → failed deployment → View build log**. Copy the **first error** and the last ~30 log lines, omitting any secrets. Common signatures:
-- `@cloudflare/next-on-pages` / `open-next` errors: wrong full-stack preset; use **Static HTML Export**.
-- `Output directory out not found`: inspect the preceding `npm run build:pages` error and confirm repository root/output.
-- `Set both public Supabase variables`: add both public values (no secrets) to that Cloudflare environment.
-- `Unsupported engine` / Node < 22: enable Node 22 and v3 build image.
-- `404` after a successful build: verify deployed origin and the generated `/demo/` page before changing DNS.
+## Verification sequence (reversible)
+1. Review PR checks. The `build:cloudflare` task must pass in GitHub Actions.
+2. Inspect Cloudflare **Workers Builds** failure details and compare the first error with this fix. Cloudflare project URL above points directly to the corresponding build.
+3. With approval, merge the reviewed PR to `main` (or otherwise apply the changes). The connected Worker can then build with the corrected `wrangler.toml`.
+4. Verify your **actual** Worker URL in Cloudflare, starting at `/` and `/demo/`, and then sign-in. Confirm `/missing-page/` returns a 404.
+5. If the Worker deployment fails, do **not** delete/recreate the project or change DNS. Review the exact first failed Cloudflare step and rollback to the prior Worker version if any working one exists.
 
-Run `npm ci && npm run build:pages` locally or check GitHub Actions in this PR. A passing GitHub build proves source/artifact correctness only; **it does not prove Cloudflare published the site**.
+## If you actually intend Cloudflare Pages instead
+The repository could also be hosted on Pages with `npm run build:cloudflare` and output `out`, using **Next.js (Static HTML Export)**. That is a different Cloudflare project type and needs **Pages-specific** configuration (do not use this Workers `wrangler.toml`). Because GitHub checks identify your existing integration as Workers, avoid creating a new project unless explicitly chosen.
 
-## Production safety
-This repair does not touch Supabase migrations, billing, custom domains, authentication redirect settings, production traffic, or existing data. If you use Wrangler directly, generate its config from your **real** Pages project using `npx wrangler pages download config <ACTUAL_PAGES_PROJECT_NAME>` and review it before committing, rather than restoring a guessed project name.
-
-Once publication succeeds, configure Supabase Authentication → URL Configuration using the deployed Cloudflare URL and the exact `/auth/callback/` path. Test `/`, `/demo/`, `/login/`, and `/dashboard/` (authenticated) on a disposable account before declaring the site live.
+## Authoritative docs
+- Cloudflare Workers Builds: https://developers.cloudflare.com/workers/ci-cd/builds/configuration/
+- Workers Static Assets / SSG: https://developers.cloudflare.com/workers/static-assets/routing/static-site-generation/
+- Cloudflare Pages static Next.js (alternative only): https://developers.cloudflare.com/pages/framework-guides/nextjs/deploy-a-static-nextjs-site/
