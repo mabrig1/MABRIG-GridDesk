@@ -16,10 +16,12 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:db
-      - run: npm run build
+      - run: npm run build:cloudflare
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://test-minigrid.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_test_only_not_a_real_key
+      # Catch invalid Wrangler configs and missing asset paths without publishing anything.
+      - run: npx --yes wrangler@4.151.2 deploy --dry-run
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       # This mock-configured build is ONLY for tests. Never deploy this output.
